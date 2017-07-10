@@ -1,6 +1,6 @@
 # Fast and Easy vSphere Configuration
 
-Este script consegue criar máquinas virtuais linked clone a partir de snapshots. O linked clone pode ser muito útil para utilizar em labs, seja pela rapidez no deploy ou por ocupar menos espaço em disco.
+Este script utiliza o vSphere PowerCLI para criar um ambiente completo no vSphere com iSCSI, tudo de forma interativa e seguindo as recomendações de configurações da VMware.
 
  - **Ações que o Script executa**
 	 - **Configuration**
