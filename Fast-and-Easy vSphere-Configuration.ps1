@@ -2,10 +2,10 @@
 # Created By @RicardoConzatti | November 2016
 # www.Solutions4Crowds.com.br
 ######################################################################
-$vCenter = "lab-n-vc1c.s4c.local" # Default = 0
-$vCuser = "administrator@vsphere.local" # Default = 0
-$MyHosts = 'lab-n-esxi1c.s4c.local','lab-n-esxi2c.s4c.local','lab-n-esxi3c.s4c.local' # Default = 0
-$TestServer = 1 # 1 off | 0 on
+$vCenter = 0 #"lab-n-vc1c.s4c.local" # Default = 0
+$vCuser = 0 #"administrator@vsphere.local" # Default = 0
+$MyHosts = 0 #'lab-n-esxi1c.s4c.local','lab-n-esxi2c.s4c.local','lab-n-esxi3c.s4c.local' # Default = 0
+$TestServer = 0 # 1 off | 0 on
 ######################################################################
 $NumHost = $MyHosts.count
 cls
