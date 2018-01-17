@@ -28,6 +28,8 @@ Este script utiliza o vSphere PowerCLI para criar um ambiente completo no vSpher
 		 - Configura a criação de máquinas virtuais utilizando o linked clone
 	 - **TAG**
 		 - Cria categorias para as tags, cria tags e associa as tags com máquinas virtuais
+	 - **E-mail**
+		 - É possível enviar os relatórios em CSV ou HTML por e-mail
  - **Compatibilidade**
 	 - vSphere (ESXi e vCenter)
 		 - Testado nas versões 5.1, 5.5, 6.0 e 6.5
@@ -43,3 +45,4 @@ Este script utiliza o vSphere PowerCLI para criar um ambiente completo no vSpher
 		 - Resolução de nomes (curto e FQDN)
 
 [Mais informações](http://solutions4crowds.com.br/script-fast-and-easy-vsphere-configuration)
+[Documentação Oficial - PT-BR](https://fasteasy.solutions4crowds.com.br)

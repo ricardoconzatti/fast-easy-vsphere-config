@@ -1,15 +1,25 @@
 ######################################################################
 # Created By @RicardoConzatti | November 2016
+# Latest Update: January 2018
 # www.Solutions4Crowds.com.br
+# Documentation https://fasteasy.solutions4crowds.com.br
 ######################################################################
-$vCenter = 0 #"lab-n-vc1c.s4c.local" # Default = 0
+$vCenter = 0 # "vcenter.s4c.local" # Default = 0
 $vCuser = 0 #"administrator@vsphere.local" # Default = 0
-$MyHosts = 0 #'lab-n-esxi1c.s4c.local','lab-n-esxi2c.s4c.local','lab-n-esxi3c.s4c.local' # Default = 0
-$TestServer = 0 # 1 off | 0 on
+$MyHosts = 0 #'esxi01.s4c.local','esxi02.s4c.local','esxi03.s4c.local' # Default = 0
+$TestServer = 1 # 0 Off | 1 On | Default = 1
+############################### MAIL ################################
+$SmtpClient = new-object system.net.mail.smtpClient
+$SmtpClient.Host = 'smtp.gmail.com' # SMTP host
+$SmtpClient.Port = 587 # SMTP port
+$SmtpClient.EnableSsl = $true # $true or $false
+$EmailFrom = "vcap@solutions4crowds.com.br" # Email from
+$ReportReceiver = "ricardoconzatti@hotmail.com" # Email to
+$MailBody = "The report file is attached.`n`nAutomated by Ricardo Conzatti`nwww.Solutions4Crowds.com.br" # Body
 ######################################################################
 $NumHost = $MyHosts.count
 cls
-$S4Ctitle = "Fast and Easy vSphere Configuration v2.0"
+$S4Ctitle = "Fast & Easy vSphere Configuration v2.0"
 $Body = 'www.Solutions4Crowds.com.br
 
 =======================================================
@@ -68,14 +78,28 @@ Function MyConfiguration { # 0 - CONFIGURATION
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "CONFIGURATION`n`n=======================================================`n"
+	write-host "Configure Servers`n`n=======================================================`n"
 	$vCenter = read-host "vCenter Server (FQDN or IP)"
 	write-host
 	[array]$MyHosts = (Read-Host "ESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
 	$NumHost = $MyHosts.count
 	write-host "`nMake sure the information is correct`nGo to option 1 and test servers`n"
-	pause
-	vMenu
+	pause;vMenuConfiguration
+}
+Function ConfMail { # MAIL
+	cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "Configure Mail`n`n=======================================================`n"
+	write-host "Edit the script and change the value of variables:"
+	write-host "`n======================" -foregroundcolor "green"
+	write-host '$SmtpClient.Host' -foregroundcolor "green"
+	write-host '$SmtpClient.Port' -foregroundcolor "green"
+	write-host '$SmtpClient.EnableSsl' -foregroundcolor "green"
+	write-host '$EmailFrom' -foregroundcolor "green"
+	write-host '$ReportReceiver' -foregroundcolor "green"
+	write-host "======================`n" -foregroundcolor "green"
+	pause;vMenuConfiguration
 }
 Function MyTest { # 1 - TEST SERVERS
 	cls
@@ -113,18 +137,17 @@ Function MyTest { # 1 - TEST SERVERS
 		$NumHostTotal++;
 	}
 	If ($ConnectionError -eq 1) {
-		$TestServer = 0
+		$TestServer = 1
 		write-host "`nFAIL`nCheck the errors and verify your network / DNS`n" -foregroundcolor "red";
 		write-host "or go to option 0 and check the servers name`n"
 	}
 	else {
 		write-host
-		$TestServer = 1
+		$TestServer = 0
 		write-host "`nSUCCESS`n" -foregroundcolor "green"
 		write-host "Go to option 2 and connect to vCenter Server`n"
 	}
-	pause
-	vMenu
+	pause;vMenu
 }
 Function MyvCenter { # 2 - VCENTER SERVER
 	cls
@@ -147,7 +170,7 @@ Function MyvCenter { # 2 - VCENTER SERVER
 	}
 	$vCpass = Read-Host -assecurestring "Password"
 	$vCpass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($vCpass))
-	Connect-VIServer $vCenter -u $vCuser -password $vCpass | Out-Null
+	Connect-VIServer $vCenter -u $vCuser -password $vCpass -WarningAction SilentlyContinue
 	write-host "`nConnected to $vCenter`n" -foregroundcolor "green"
 	pause
 	vMenu
@@ -212,15 +235,184 @@ Function ListHostsDC {
 			}
 		}
 			ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List ESXi Host - $MyDC</div>$br<div id='subtitle'>Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\ESXi-'$MyDC'-Details.html'
-			write-host "Exported to $ExportPath\ESXi-$MyDC-Details.html`n"
+			$ExportedFullPath = "$ExportPath\ESXi-$MyDC-Details.html"
+			write-host "Exported to $ExportedFullPath`n"
 		}
 		if ($QuestionExportFormat -eq 2) {
 			Get-VMHost -Location $MyDC | select Name,Version,Manufacturer,Model,PowerState,ConnectionState,MemoryTotalGB,MemoryUsageGB,CpuTotalMhz,CpuUsageMhz | Export-Csv "$ExportPath\ESXi-$MyDC-Details.csv"
-			write-host "`nExported to $ExportPath\ESXi-$MyDC-Details.csv`n"
+			$ExportedFullPath = "$ExportPath\ESXi-$MyDC-Details.csv"
+			write-host "Exported to $ExportedFullPath`n"
 		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | List ESXi Host - $MyDC" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
 	}
 	else {
 		pause;vMenuDatacenter
+	}
+	pause;vMenuDatacenter
+}
+Function InfoDC {
+	cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "Info - Data Center ($vCenter)`n`n=======================================================`n"
+	$GetDC = Get-Datacenter | Get-View
+	if ($GetDC.Name.count -eq 0) {
+		write-host "There is no data center" -foregroundcolor "red"
+		write-host "Redirecting to create data center`n"
+		pause;CreateDC
+	}
+	if ($GetDC.Name.count -eq 1) {
+		write-host "Data Center Name:"$GetDC.Name
+		$MyDC = $GetDC.Name
+	}
+	else {
+		$ListDCtotal = 0
+		while ($GetDC.Name.count -ne $ListDCtotal) {
+			write-host "$ListDCtotal -"$GetDC.Name[$ListDCtotal]
+			$ListDCtotal++;
+		}
+		$MyDC = read-host "`nData Center Number"
+		$MyDC = $GetDC.Name[$MyDC]
+	}
+	$NumDCTotal = 0
+	$NumClusterTotal = 0
+	$NumVDSTotal = 0
+	if ($MyDC.count -eq 0) { ### DATA CENTER ###
+		write-host "`n# There is no Data Center"
+	}
+	else {
+		while ($MyDC.count -ne $NumDCTotal) {
+			if ($MyDC.count -eq 1) {
+				$VMDC = Get-VM -Location $MyDC # Number VM
+				$ESXiDC = Get-VMHost -Location $MyDC # Number ESXi
+				#$RPool = $RPool.count - 1 # Number Resource Pool
+				$RPoolDC = Get-Datacenter -Name $MyDC | Get-ResourcePool # Number Resource Pool
+				$FolderVMDC = Get-Folder -Type VM -Location $MyDC # Number Folder VM
+				$MyCluster = Get-Cluster -Location $MyDC | Select -ExpandProperty Name # Number Cluster
+				$VDS = Get-VDSwitch -Location $MyDC | Select -ExpandProperty Name # Number VDS
+				$DS = Get-Datastore -Location $MyDC | Select -ExpandProperty Name # Number Datastore
+				$MyrealDC = $MyDC
+				$NumCluster = $MyCluster.count
+				$NumVDS = $VDS.count
+				if ($VDS.count -eq 0) {
+					$VDSmsg = "VDS: 0 (There is no VDS)"
+				}
+				if ($VDS.count -eq 1) {
+					$PG = Get-VDPortgroup -VDSwitch $VDS | Select -ExpandProperty Name # Number Port Group
+					$PGtotal = $PG
+				}
+				if ($VDS.count -gt 1) {
+					while ($VDS.count -ne $NumVDSTotal) {
+						$PG = Get-VDPortgroup -VDSwitch $VDS[$NumVDSTotal] | Select -ExpandProperty Name # Number Port Group
+						$PGtotal = $PGtemp + $PG
+						$PGtemp = $PGtotal
+						$NumVDSTotal++;
+					}
+				}
+			}
+			if ($MyDC.count -gt 1) {
+				$VMDC = Get-VM -Location $MyDC[$NumDCTotal] # Number VM
+				$ESXiDC = Get-VMHost -Location $MyDC[$NumDCTotal] # Number ESXi
+				#$RPoolDC = $RPoolDC.count - 1 # Number Resource Pool
+				$RPoolDC = Get-Datacenter -Name $MyDC[$NumDCTotal] | Get-ResourcePool # Number Resource Pool
+				$FolderVMDC = Get-Folder -Type VM -Location $MyDC[$NumDCTotal] # Number Folder VM
+				$MyCluster = Get-Cluster -Location $MyDC[$NumDCTotal] | Select -ExpandProperty Name # Number Cluster
+				$VDS = Get-VDSwitch -Location $MyDC[$NumDCTotal] | Select -ExpandProperty Name # Number VDS
+				$DS = Get-Datastore -Location $MyDC[$NumDCTotal] | Select -ExpandProperty Name # Number Datastore
+				$MyrealDC = $MyDC[$NumDCTotal]
+				$NumVDS = $VDS.count
+				if ($VDS.count -eq 0) {
+					$VDSmsg = "VDS: 0 (There is no VDS)"
+				}
+				if ($VDS.count -eq 1) {
+					$PG = Get-VDPortgroup -VDSwitch $VDS | Select -ExpandProperty Name # Number Port Group
+					$PGtotal = $PG
+				}
+				if ($VDS.count -gt 1) {
+					while ($VDS.count -ne $NumVDSTotal) {
+						$PG = Get-VDPortgroup -VDSwitch $VDS[$NumVDSTotal] | Select -ExpandProperty Name # Number Port Group
+						$PGtotal = $PGtemp + $PG
+						$PGtemp = $PGtotal
+						$NumVDSTotal++;
+					}
+				}
+			}
+			if ($ESXiDC.count -eq 0 -And $MyCluster.count -eq 0) {
+				write-host "`n# Data center is empty"
+			}
+			else {
+				write-host "Cluster:" $MyCluster.count # Number Cluster
+				if ($VDS.count -eq 0) {
+					$VDSmsg
+				}
+				else {
+					write-host "VDS:" $VDS.count # Number VDS
+					$PGtotal2 = $PGtotal.count - $VDS.count
+					write-host "Port Group:" $PGtotal2 # Number Port Group
+				}
+				write-host "Datastore:" $DS.count # Number Datastore
+				$FolderVMDC = $FolderVMDC.count - 1
+				write-host "Folder VM:" $FolderVMDC # Number Folder VM
+				$RPoolDC = $RPoolDC.count - $NumCluster
+				write-host "Resource Pool:" $RPoolDC # Number Resource Pool
+				write-host "ESXi Host:" $ESXiDC.count # Number ESXi
+				write-host "Virtual Machine:" $VMDC.count # Number VM
+				if ($MyCluster.count -eq 0) { ### CLUSTER ###
+					write-host "`n# Cluster"$MyCluster"is empty"
+				}
+				if ($MyCluster.count -eq 1) {
+					$ESXi = Get-Cluster -Name $MyCluster | Get-VMHost # Number ESXi
+					if ($ESXi.count -eq 0) { ### CLUSTER ###
+						write-host "`n# There is no ESXi Host Cluster"
+					}
+					else {
+						$RPool = Get-Cluster -Name $MyCluster | Get-ResourcePool # Number Resource Pool
+						$VM = Get-Cluster -Name $MyCluster | Get-VM # Number VM
+						write-host "`n# CLUSTER"$MyCluster
+						$RPool = $RPool.count - 1
+						write-host "Resource Pool:"$RPool # Number Resource Pool
+						write-host "ESXi host:"$ESXi.count # Number ESXi
+						write-host "Virtual Machine:"$VM.count # Number VM
+					}
+				}
+				else {
+					$NumClusterTotal = 0
+					while ($MyCluster.count -ne $NumClusterTotal) {
+						$ESXi = Get-Cluster -Name $MyCluster[$NumClusterTotal] | Get-VMHost # Number ESXi
+						if ($ESXi.count -eq 0) { ### CLUSTER ###
+							write-host "`n# Cluster"$MyCluster[$NumClusterTotal]"is empty"
+						}
+						else {
+							$RPool = Get-Cluster -Name $MyCluster[$NumClusterTotal] | Get-ResourcePool # Number Resource Pool
+							$VM = Get-Cluster -Name $MyCluster[$NumClusterTotal] | Get-VM # Number VM
+							write-host "`n# CLUSTER"$MyCluster[$NumClusterTotal]
+							$RPool = $RPool.count - 1
+							write-host "Resource Pool:"$RPool # Number Resource Pool
+							write-host "ESXi host:"$ESXi.count # Number ESXi
+							write-host "Virtual Machine:"$VM.count # Number VM
+						}
+						$NumClusterTotal++;
+					}
+				}
+			}
+			$NumDCTotal++;
+			write-host "`n"
+		}
 	}
 	pause;vMenuDatacenter
 }
@@ -286,7 +478,7 @@ Function AddHostsToCluster {
 			write-host $MyHosts[$NumHostTotal]
 			$NumHostTotal++;
 		}
-		$QuestionESXi = read-host "`nWould you like to add these ESXi hosts to"$GetCluster.Name[$MyCluster]"? (Y or N)"
+		$QuestionESXi = read-host "`nWould you like to add these ESXi hosts to"$MyCluster"? (Y or N)"
 		if ($QuestionESXi -eq "n") {
 			[array]$MyHosts = (Read-Host "`nESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
 			$NumHost = $MyHosts.count
@@ -360,12 +552,30 @@ Function ListHostsCluster {
 			}
 		}
 		ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List ESXi Host - $MyCluster</div>$br<div id='subtitle'>Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\ESXi-'$MyCluster'-Details.html'
-		write-host "Exported to $ExportPath\ESXi-$MyCluster-Details.html`n"
+		$ExportedFullPath = "$ExportPath\ESXi-$MyCluster-Details.html"
+		write-host "Exported to $ExportedFullPath`n"
 		}
 		if ($QuestionExportFormat -eq 2) {
 			Get-VMHost -Location $MyCluster | select Name,Version,Manufacturer,Model,PowerState,ConnectionState,MemoryTotalGB,MemoryUsageGB,CpuTotalMhz,CpuUsageMhz | Export-Csv "$ExportPath\ESXi-$MyCluster-Details.csv"
-			write-host "`nExported to $ExportPath\ESXi-$MyCluster-Details.csv`n"
+			$ExportedFullPath = "$ExportPath\ESXi-$MyCluster-Details.csv"
+			write-host "`nExported to $ExportedFullPath`n"
 		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | List ESXi Host - $MyCluster" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
 	}
 	else {
 		pause;vMenuCluster
@@ -527,12 +737,30 @@ Function ListVDS {
 			}
 		}
 		ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List VDS - $MyDC</div>$br<div id='subtitle'>Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\VDS-'$MyDC'-Details.html'
-		write-host "Exported to $ExportPath\VDS-$MyDC-Details.html`n"
+		$ExportedFullPath = "$ExportPath\VDS-$MyDC-Details.html"
+		write-host "Exported to $ExportedFullPath`n"
 		}
 		if ($QuestionExportFormat -eq 2) {
 			Get-VDSwitch -Location $MyDC | select Name,NumPorts,NumUplinkPorts,Mtu,Version | Export-Csv "$ExportPath\VDS-$MyDC-Details.csv"
-			write-host "`nExported to $ExportPath\VDS-$MyVDS-Details.csv`n"
+			$ExportedFullPath = "$ExportPath\VDS-$MyVDS-Details.csv"
+			write-host "`nExported to $ExportedFullPath`n"
 		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | List VDS - $MyDC" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
 	}
 	else {
 		pause;vMenuVDS
@@ -583,12 +811,30 @@ Function Listpg {
 			}
 		}
 		ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List Port Group - $MyVDS</div>$br<div id='subtitle'> Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\PortGroup-'$MyVDS'-Details.html'
-		write-host "Exported to $ExportPath\PortGroup-$MyVDS-Details.html`n"
+		$ExportedFullPath = "$ExportPath\PortGroup-$MyVDS-Details.html"
+		write-host "Exported to $ExportedFullPath`n"
 		}
 		if ($QuestionExportFormat -eq 2) {
 			Get-VDSwitch -Location $MyDC | select Name,NumPorts,NumUplinkPorts,Mtu,Version | Export-Csv "$ExportPath\PortGroup-$MyVDS-Details.csv"
-			write-host "`nExported to $ExportPath\PortGroup-$MyVDS-Details.csv`n"
+			$ExportedFullPath = "$ExportPath\PortGroup-$MyVDS-Details.csv"
+			write-host "`nExported to $ExportedFullPath`n"
 		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | List Port Group - $MyVDS" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
 	}
 	else {
 		pause;vMenuPortGroup
@@ -847,67 +1093,14 @@ Function AddNICtoVDS {
 	}
 	pause;vMenuVDS
 }
-Function CreateVMKvMotion {
-	cls
-	write-host $S4Ctitle
-	write-host $Body
-	write-host "Create VMKernel vMotion - ($vCenter)`n`n=======================================================`n"
-	$GetVDS = Get-VDSwitch | Get-View
-	if ($GetVDS.Name.count -eq 0) {
-		write-host "There is no VDS" -foregroundcolor "red"
-		write-host "Redirecting to create VDS`n"
-		pause;CreateVDS
-	}
-	if ($GetVDS.Name.count -eq 1) {
-		write-host "VDS Name:"$GetVDS.Name
-		$MyVDS = $GetVDS.Name
-	}
-	else {
-		$ListVDStotal = 0
-		while ($GetVDS.Name.count -ne $ListVDStotal) {
-			write-host "$ListVDStotal -"$GetVDS.Name[$ListVDStotal]
-			$ListVDStotal++;
-		}
-		$MyVDS = read-host "`nVDS Number"
-		$MyVDS = $GetVDS.Name[$MyVDS]
-	}
-	$GetPG = Get-VDPortgroup -VDSwitch $MyVDS
-	$MyPGvMotion = read-host "`nvMotion Port Group Name ("$GetPG.Name")"
-	write-host
-	if ($NumHost -ne 0) {
-		$NumHostTotal = 0
-		while($NumHost -ne $NumHostTotal) {
-			write-host $MyHosts[$NumHostTotal]
-			$NumHostTotal++;
-		}
-		$QuestionESXi = read-host "`nWould you like to use these ESXi hosts to $MyVDS ? (Y or N)"
-		if ($QuestionESXi -eq "n") {
-			[array]$MyHosts = (Read-Host "`nESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
-			$NumHost = $MyHosts.count
-		}
-	}
-	else {
-		[array]$MyHosts = (Read-Host "`nESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
-		$NumHost = $MyHosts.count
-	}
-	[array]$MyIPvMotionHosts = (Read-Host "`nvMotion IP (separate with comma)").split(",") | %{$_.trim()}
-	write-host
-	$MyMaskvMotion = read-host "vMotion Mask (Ex: 255.255.255.0)"
-	$NumHostTotal = 0
-	write-host
-	while($NumHost -ne $NumHostTotal) {
-		New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPGvMotion -IP $MyIPvMotionHosts[$NumHostTotal] -SubnetMask $MyMaskvMotion -VMotionEnabled $true | Out-Null # Create VMKernel vMotion
-		write-host $MyHosts[$NumHostTotal]"with IP"$MyIPvMotionHosts[$NumHostTotal]"OK!" -foregroundcolor "green"
-		$NumHostTotal++;
-	}
-	write-host "`nHosts OK!`n" -foregroundcolor "green"
-	pause;vMenuVMKernel
-}
 Function CreateVMK {
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "Create VMKernel Generic ($vCenter)`n`n=======================================================`n"
+	write-host "Create VMKernel ($vCenter)`n`n=======================================================`n"
+	write-host "1 - Generic`n2 - Management`n3 - vMotion`n4 - vSAN`n"
+	$QuestionVMK = read-host "Number of the VMKernel type"
+	write-host
 	$GetVDS = Get-VDSwitch | Get-View
 	if ($GetVDS.Name.count -eq 0) {
 		write-host "There is no VDS" -foregroundcolor "red"
@@ -925,6 +1118,7 @@ Function CreateVMK {
 			$ListVDStotal++;
 		}
 		$MyVDS = read-host "`nVDS Number"
+		write-host
 		$MyVDS = $GetVDS.Name[$MyVDS]
 	}
 	$GetPG = Get-VDPortgroup -VDSwitch $MyVDS | Get-View
@@ -959,18 +1153,44 @@ Function CreateVMK {
 		[array]$MyHosts = (Read-Host "`nESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
 		$NumHost = $MyHosts.count
 	}
-	[array]$MyIPHostsVMK = (Read-Host "`nVMKernel IP (separate with comma)").split(",") | %{$_.trim()}
+	[array]$MyIPHostsVMK = (Read-Host "`nVMKernel IP (write $NumHost IP separate with comma)").split(",") | %{$_.trim()}
 	$MyMaskVMK = read-host "`nVMKernel Mask (Ex: 255.255.255.0)"
 	$MyMTU = read-host "`nMTU (Ex: Default = 1500 | Jumbo Frames = 9000)"
 	$NumHostTotal = 0
 	write-host
-	while($NumHost -ne $NumHostTotal) {
-		New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPG -IP $MyIPHostsVMK[$NumHostTotal] -SubnetMask $MyMaskVMK -MTU $MyMTU | Out-Null # Create VMKernel
-		write-host $MyHosts[$NumHostTotal]"with IP"$MyIPHostsVMK[$NumHostTotal]"OK!" -foregroundcolor "green"
-		$NumHostTotal++;
+	if ($QuestionVMK -eq 1) { # VMKernel Generic
+		$VMKservice = "Generic (without enabled services)"
+		while($NumHost -ne $NumHostTotal) {	
+			New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPG -IP $MyIPHostsVMK[$NumHostTotal] -SubnetMask $MyMaskVMK -MTU $MyMTU | Out-Null # Create VMKernel Generic
+			write-host $MyHosts[$NumHostTotal]"with IP"$MyIPHostsVMK[$NumHostTotal]"OK!" -foregroundcolor "green"
+			$NumHostTotal++;
+		}
 	}
-	write-host "`nEnable the function you want (vMotion, FT, MGMT, VSAN...)`n"
-	write-host "Hosts OK!`n" -foregroundcolor "green"
+	if ($QuestionVMK -eq 2) { # VMKernel Management
+		$VMKservice = "Management"
+		while($NumHost -ne $NumHostTotal) {	
+			New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPG -IP $MyIPHostsVMK[$NumHostTotal] -SubnetMask $MyMaskVMK -MTU $MyMTU -ManagementTrafficEnabled $true | Out-Null # Create VMKernel Management
+			write-host $MyHosts[$NumHostTotal]"with IP"$MyIPHostsVMK[$NumHostTotal]"OK!" -foregroundcolor "green"
+			$NumHostTotal++;
+		}
+	}
+	if ($QuestionVMK -eq 3) { # VMKernel vMotion
+		$VMKservice = "vMotion"
+		while($NumHost -ne $NumHostTotal) {	
+			New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPG -IP $MyIPHostsVMK[$NumHostTotal] -SubnetMask $MyMaskVMK -MTU $MyMTU -VMotionEnabled $true | Out-Null # Create VMKernel vMotion
+			write-host $MyHosts[$NumHostTotal]"with IP"$MyIPHostsVMK[$NumHostTotal]"OK!" -foregroundcolor "green"
+			$NumHostTotal++;
+		}
+	}
+	if ($QuestionVMK -eq 4) { # VMKernel vSAN
+		$VMKservice = "vSAN"
+		while($NumHost -ne $NumHostTotal) {	
+			New-VMHostNetworkAdapter -VMHost $MyHosts[$NumHostTotal] -VirtualSwitch $MyVDS -PortGroup $MyPG -IP $MyIPHostsVMK[$NumHostTotal] -SubnetMask $MyMaskVMK -MTU $MyMTU -VsanTrafficEnabled $true | Out-Null # Create VMKernel vSAN
+			write-host $MyHosts[$NumHostTotal]"with IP"$MyIPHostsVMK[$NumHostTotal]"OK!" -foregroundcolor "green"
+			$NumHostTotal++;
+		}
+	}
+	write-host "`nVMKernel $VMKservice - Hosts OK!`n" -foregroundcolor "green"
 	pause;vMenuVMKernel	
 }
 Function ListVMK {
@@ -988,17 +1208,8 @@ Function ListVMK {
 		write-host "VDS Name:"$GetVDS.Name
 		$MyVDS = $GetVDS.Name
 	}
-	else {
-		$ListVDStotal = 0
-		while ($GetVDS.Name.count -ne $ListVDStotal) {
-			write-host "$ListVDStotal -"$GetVDS.Name[$ListVDStotal]
-			$ListVDStotal++;
-		}
-		$MyVDS = read-host "`nVDS Number"
-		$MyVDS = $GetVDS.Name[$MyVDS]
-	}
 	write-host
-	Get-VMHostNetworkAdapter -VMKernel -Name $MyVMK -VirtualSwitch $MyVDS | select VMHost,Name,IP,SubnetMask,Mtu,PortGroupName,ManagementTrafficEnabled,VMotionEnabled,FaultToleranceLoggingEnabled,VsanTrafficEnabled | format-table # List Port Group
+	Get-VMHostNetworkAdapter -VMKernel | Select VMHost,Name,IP,SubnetMask,Mtu,PortGroupName,ManagementTrafficEnabled,VMotionEnabled,FaultToleranceLoggingEnabled,VsanTrafficEnabled | format-table # List Port Group
 	$QuestionExport = read-host "Would you like to export this report? (Y or N)"
 	if ($QuestionExport -eq "Y") {
 		$ExportPath = read-host "`nPath to export (Ex: C:\temp)"
@@ -1008,7 +1219,7 @@ Function ListVMK {
 		$QuestionExportFormat = read-host "Choose an Option"
 		write-host
 		if ($QuestionExportFormat -eq 1) {
-			$Report = Get-VMHostNetworkAdapter -VMKernel -VirtualSwitch $MyVDS | select VMHost,Name,IP,SubnetMask,Mtu,PortGroupName,ManagementTrafficEnabled,VMotionEnabled,FaultToleranceLoggingEnabled,VsanTrafficEnabled | ConvertTo-HTML -Fragment
+			$Report = Get-VMHostNetworkAdapter -VMKernel | select VMHost,Name,IP,SubnetMask,Mtu,PortGroupName,ManagementTrafficEnabled,VMotionEnabled,FaultToleranceLoggingEnabled,VsanTrafficEnabled | ConvertTo-HTML -Fragment
 			if (-not $Report) {
 				$Report = New-Object PSObject -Property @{
 				  VMHost = ""
@@ -1024,12 +1235,30 @@ Function ListVMK {
 			}
 		}
 		ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List VMKernel - $MyVDS</div>$br<div id='subtitle'>Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\VMKernel-'$MyVDS'-Details.html'
-		write-host "Exported to $ExportPath\VMKernel-$MyVDS-Details.html`n"
+		$ExportedFullPath = "$ExportPath\VMKernel-$MyVDS-Details.html"
+		write-host "Exported to $ExportedFullPath`n"
 		}
 		if ($QuestionExportFormat -eq 2) {
 			Get-VMHostNetworkAdapter -VMKernel -Name $MyVMK -VirtualSwitch $MyVDS | select VMHost,Name,ManagementTrafficEnabled,IP,SubnetMask,PortGroupName | Export-Csv "$ExportPath\VMKernel-$MyVDS-Details.csv"
-			write-host "`nExported to $ExportPath\VMKernel-$MyVDS-Details.csv`n"
+			$ExportedFullPath = "$ExportPath\VMKernel-$MyVDS-Details.csv"
+			write-host "`nExported to $ExportedFullPath`n"
 		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | List VMKernel - $MyVDS" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
 	}
 	else {
 		pause;vMenuVMKernel
@@ -1068,6 +1297,7 @@ Function CreateVMKiSCSI {
 			$NumHostTotal++;
 		}
 		$QuestionESXi = read-host "`nWould you like to use these ESXi hosts to $MyVDS ? (Y or N)"
+		write-host
 		if ($QuestionESXi -eq "n") {
 			[array]$MyHosts = (Read-Host "`nESXi Hosts - FQDN or IP (separate with comma)").split(",") | %{$_.trim()}
 			$NumHost = $MyHosts.count
@@ -1098,7 +1328,7 @@ Function CreateVMKiSCSI {
 	$NumPGiSCSITotal = 0
 	while($NumPGiSCSI -ne $NumPGiSCSITotal) {
 		[array]$MyIPiSCSIHosts = (Read-Host "iSCSI IP -"$MyPGiSCSI[$NumPGiSCSITotal]"(write $NumHost IP separate with comma)").split(",") | %{$_.trim()} # IP VMKernel
-		$MyMaskiSCSI = read-host "`niSCSi Mask (Ex: 255.255.255.0)"
+		$MyMaskiSCSI = read-host "`niSCSI Mask (Ex: 255.255.255.0)"
 		$MyMTUiSCSI = read-host "`nMTU (Ex: Default = 1500 | Jumbo Frames = 9000)"
 		write-host
 		$NumHostTotal = 0
@@ -1436,41 +1666,564 @@ Function CreateVMLC { # 7 - VIRTUAL MACHINE
 	write-host $S4Ctitle
 	write-host $Body
 	write-host "Create Linked Clone Virtual Machine ($vCenter)`n`n=======================================================`n"
-	write-host "Ensure that there is a snapshot and that the source VM is off`n"
-	$SourceVMName = read-Host "Source Virtual Machine Name"
+	write-host "Ensure there is a snapshot and the source VM is powered off`n"
+	$GetCluster = Get-Cluster | Get-View
+	if ($GetCluster.Name.count -eq 0) {
+		write-host "There is no cluster" -foregroundcolor "red"
+		write-host "Redirecting to create cluster`n"
+		pause;CreateCluster
+	}
+	if ($GetCluster.Name.count -eq 1) {
+		write-host "`nCluster Name:"$GetCluster.Name
+		$MyCluster = $GetCluster.Name
+	}
+	else {
+		$ListClustertotal = 0
+		while ($GetCluster.Name.count -ne $ListClustertotal) {
+			write-host "$ListClustertotal -"$GetCluster.Name[$ListClustertotal]
+			$ListClustertotal++;
+		}
+		$MyCluster = read-host "`nCluster Number"
+		$MyCluster = $GetCluster.Name[$MyCluster]
+	}
+	$SourceVMName = read-Host "`nSource Virtual Machine Name"
 	$Snap = Get-Snapshot -VM $SourceVMName | Select Name
-	$SourceVMSnapshotName = read-Host "Source Virtual Machine Snapshot Name ($Snap)"
+	$SourceVMSnapshotName = read-Host "`nSource Virtual Machine Snapshot Name ("$Snap.Name")"
 	$NewVMName = read-Host "`nNew Virtual Machine Name"
-	$ESXiName = read-Host "`nESXi hostname (FQDN)"
+	$GetESXi = Get-VMHost -Location $MyCluster | Get-View # Get ESXi
+	$ListESXitotal = 0
+	while ($GetESXi.Name.Count -ne $ListESXitotal) {
+		write-host "$ListESXitotal -"$GetESXi.Name[$ListESXitotal]
+		$ListESXitotal++;
+	}
+	$ESXiName = read-Host "`nESXi number"
 	$DatastoreName = read-Host "`nDatastore Name"
 	$QuestionLocation = read-Host "`nWould you like to define Resouce Pool and Folder? (Y or N)"
 	if ($QuestionLocation -eq "Y") {
-		$vCenterFolderName = read-Host "`nLocation - Folder Name"
+		$GetDC = Get-VMHost -Name $GetESXi.Name[$ESXiName] | Get-Datacenter # Get Data Center
+		$GetFolder = Get-Folder -Type VM -Location $GetDC # Get Folder VM
+		$ListFoldertotal = 0
+		while ($GetFolder.Name.Count -ne $ListFoldertotal) {
+			write-host "$ListFoldertotal -"$GetFolder.Name[$ListFoldertotal]
+			$ListFoldertotal++;
+		}
+		$vCenterFolderName = read-Host "`nLocation - Folder Number"
+		$GetRPool = Get-Cluster -Name $MyCluster | Get-ResourcePool # Get Resource Pool
+		$ListRPooltotal = 0
+		while ($GetRPool.Name.Count -ne $ListRPooltotal) {
+			write-host "$ListRPooltotal -"$GetRPool.Name[$ListRPooltotal]
+			$ListRPooltotal++;
+		}
 		$vCenterResourcePoolName = read-Host "`nLocation - Resource Pool Name"
 		$QuestionCustom = read-Host "`nWould you like to define Guest Customization? (Y or N)"
 		if ($QuestionCustom -eq "Y") {
 			$Customization = read-Host "`nGuest Customization Name"
-			New-VM -Name $NewVMName -VM $SourceVMName -Location $vCenterFolderName -Datastore $DatastoreName -ResourcePool $vCenterResourcePoolName -VMHost $ESXiName -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName -OSCustomizationSpec $Customization | Out-Null
+			New-VM -Name $NewVMName -VM $SourceVMName -Location $vCenterFolderName -Datastore $DatastoreName -ResourcePool $vCenterResourcePoolName -VMHost $GetESXi.Name[$ESXiName] -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName -OSCustomizationSpec $Customization | Out-Null
 		}
 		else {
-			New-VM -Name $NewVMName -VM $SourceVMName -Location $vCenterFolderName -Datastore $DatastoreName -ResourcePool $vCenterResourcePoolName -VMHost $ESXiName -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName | Out-Null
+			New-VM -Name $NewVMName -VM $SourceVMName -Location $vCenterFolderName -Datastore $DatastoreName -ResourcePool $vCenterResourcePoolName -VMHost $GetESXi.Name[$ESXiName] -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName | Out-Null
 		}
 	}
 	else {
 		$QuestionCustom = read-Host "`nWould you like to define Guest Customization? (Y or N)"
 		if ($QuestionCustom -eq "Y") {
 			$Customization = read-Host "`nGuest Customization Name"
-			New-VM -Name $NewVMName -VM $SourceVMName -Datastore $DatastoreName -VMHost $ESXiName -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName -OSCustomizationSpec $Customization | Out-Null
+			New-VM -Name $NewVMName -VM $SourceVMName -Datastore $DatastoreName -VMHost $GetESXi.Name[$ESXiName] -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName -OSCustomizationSpec $Customization | Out-Null
 		}
 		else {
-			New-VM -Name $NewVMName -VM $SourceVMName -Datastore $DatastoreName -VMHost $ESXiName -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName | Out-Null
+			New-VM -Name $NewVMName -VM $SourceVMName -Datastore $DatastoreName -VMHost $GetESXi.Name[$ESXiName] -LinkedClone -ReferenceSnapshot $SourceVMSnapshotName | Out-Null
 		}
 	}
 	write-host
 	Get-VM -Name $NewVMName | Select Name,Version,NumCpu,@{Label="MemoryGB";Expression={"{0:N2} GB" -f ($_.MemoryGB)}},@{Label="ProvisionedSpaceGB";Expression={"{0:N2} GB" -f ($_.ProvisionedSpaceGB)}},Folder,ResourcePool,GuestId,VMHost
 	write-host "`nVirtual Machine $NewVMName OK!`n" -foregroundcolor "green"
-	pause
-	vMenuVM	
+	pause;vMenuVM	
+}
+Function MigrateNetworkVM { # 7 - VIRTUAL MACHINE
+	cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "Migrate Network Adapter - E1000 / E1000e to VMXNET3 ($vCenter)`n`n=======================================================`n"
+	write-host "1 - Datacenter`n2 - Cluster`n3 - Resource Pool`n4 - Folder`n"
+	$QuestionLocation = read-host "Select Virtual Machines Location"
+	if ($QuestionLocation -eq 1) { # Datacenter
+		$GetDC = Get-Datacenter | Get-View
+		$ListDCtotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetDC.Name.count -eq 1) {
+			$VMLocation = $GetDC.Name
+			write-host "Datacenter: $VMLocation"
+		}
+		else {
+			while ($GetDC.Name.count -ne $ListDCtotal) {
+				write-host "$ListDCtotal -"$GetDC.Name[$ListDCtotal]
+				$ListDCtotal++;
+			}
+			$MyDC = read-host "`nDatacenter Number"
+			$VMLocation = $GetDC.Name[$MyDC]
+		}
+	}
+	if ($QuestionLocation -eq 2) { # Cluster
+		$GetCluster = Get-Cluster | Get-View
+		$ListClustertotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetCluster.Name.count -eq 1) {
+			$VMLocation = $GetCluster.Name
+			write-host "Cluster: $VMLocation"
+		}
+		else {
+			while ($GetCluster.Name.count -ne $ListClustertotal) {
+				write-host "$ListClustertotal -"$GetCluster.Name[$ListClustertotal]
+				$ListClustertotal++;
+			}
+			$MyCluster = read-host "`nCluster Number"
+			$VMLocation = $GetCluster.Name[$MyCluster]
+		}
+	}
+	if ($QuestionLocation -eq 3) { # Resource Pool
+		$GetResourcePool = Get-ResourcePool | Get-View
+		$ListResourcePooltotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetResourcePool.Name.count -eq 1) {
+			$VMLocation = $GetResourcePool.Name
+			write-host "Resource Pool: $VMLocation"
+		}
+		else {
+			while ($GetResourcePool.Name.count -ne $ListResourcePooltotal) {
+				write-host "$ListResourcePooltotal -"$GetResourcePool.Name[$ListResourcePooltotal]
+				$ListResourcePooltotal++;
+			}
+			$MyResourcePool = read-host "`nResource Pool Number"
+			$VMLocation = $GetResourcePool.Name[$MyResourcePool]
+		}
+	}
+	if ($QuestionLocation -eq 4) { # Folder
+		$GetFolder = Get-Folder -Type VM | Get-View
+		$ListFoldertotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetFolder.Name.count -eq 1) {
+			$VMLocation = $GetFolder.Name
+			write-host "Folder: $VMLocation"
+		}
+		else {
+			while ($GetFolder.Name.count -ne $ListFoldertotal) {
+				write-host "$ListFoldertotal -"$GetFolder.Name[$ListFoldertotal]
+				$ListFoldertotal++;
+			}
+			$MyFolder = read-host "`nFolder Number"
+			$VMLocation = $GetFolder.Name[$MyFolder]
+		}
+	}
+	$VMe1000total = 0 # reset variable
+	$VMpowerstate = 0 # reset variable
+	$VMe1000total = Get-VM -Location $VMLocation | Get-NetworkAdapter | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"}
+	if ($VMe1000total.Count -eq 0) { # Check if there are VM e1000 / e1000e
+		write-host "`nThere are no E1000 / E1000E virtual machines in the $VMLocation`nSelect another Virtual Machines Location`n"
+		pause;vMenuVM
+	}
+	else {
+		$MyVM = Get-VM -Location $VMLocation | sort-object
+		$VMNum = $MyVM.Count
+		$VMNumTotal = 0
+		write-host "`n=======================================================`n$VMLocation - Total number of VM: $VMNum`n=======================================================`n"
+		if ($VMNum -eq 1) {
+			$VMe1000 = Get-NetworkAdapter -VM $MyVM.Name | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"} | sort-object
+			if ($VMe1000.count -gt 0) {
+				if ($MyVM.PowerState -eq "PoweredOn") { # Verifies that the VM is turned on
+					$VMStatus = "red" 
+					$VMmsg = "Not ready"
+					$VMon = 1
+				}
+				if ($MyVM.PowerState[$VMNumTotal] -eq "PoweredOff") { # Verifies that the VM is turned off
+					$VMStatus = "green"
+					$VMmsg = "Ready"
+					$VMoff = 1
+				}
+			write-host $MyVM.Name"$VMmsg" -foregroundcolor "$VMStatus"
+			}
+		}
+		else {
+			while ($VMNum -ne $VMNumTotal) { # List all VMs in the $VMLocation
+				$VMe1000 = Get-NetworkAdapter -VM $MyVM.Name[$VMNumTotal] | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"} | sort-object
+				if ($VMe1000.count -gt 0) {
+					if ($MyVM.PowerState[$VMNumTotal] -eq "PoweredOn") { # Verifies that the VM is turned on
+						$VMStatus = "red" 
+						$VMmsg = "Not ready"
+						$VMontemp = 1;$VMon = $VMontemp + $VMon
+					}
+					if ($MyVM.PowerState[$VMNumTotal] -eq "PoweredOff") { # Verifies that the VM is turned off
+						$VMStatus = "green"
+						$VMmsg = "Ready"
+						$VMofftemp = 1;$VMoff = $VMofftemp + $VMoff
+					}
+					write-host $MyVM.Name[$VMNumTotal]"$VMmsg" -foregroundcolor "$VMStatus"
+				}
+				$VMNumTotal++
+			}
+		}
+		$VMpowerstate = $VMoff + $VMon
+		write-host "`nTotal number of E1000 / E1000E VM: $VMpowerstate"
+		if ($VMoff -gt 0 -And $VMon -le 0) {
+			write-host "`n[ You can continue ]`n" -foregroundcolor "green"
+			write-host "VM ready: $VMoff"
+		}
+		else {
+			write-host "`n[ You can't continue ]`n" -foregroundcolor "red"
+			write-host "VM must be turned off: $VMon"
+			write-host "VM ready: $VMoff"
+			$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+			pause;vMenuVM
+		}
+		write-host "`n=======================================================`n"
+		$QuestionMigration = read-host "Do you want to continue? (Y or N)"
+		if ($QuestionMigration -eq "Y") {
+			write-host
+			if ($VMpowerstate -eq 1) { # just one VM
+				Get-VM $MyVM.Name -Location $VMLocation | Get-NetworkAdapter | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"} | Set-NetworkAdapter -Type "vmxnet3" -confirm:$false | Out-Null # migrate e1000 / e1000e to vmxnet3
+					write-host $MyVM.Name"changed to VMXNET 3"
+			}
+			else {
+				$VMNumTotal = 0
+				while ($VMNum -ne $VMNumTotal) { # multiples VMs
+					$VMe1000 = Get-NetworkAdapter -VM $MyVM.Name[$VMNumTotal] | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"} | sort-object
+					if ($VMe1000.Count -gt 0) {
+						Get-VM $MyVM.Name[$VMNumTotal] -Location $VMLocation | Get-NetworkAdapter | Where {$_.Type -eq "E1000" -Or $_.Type -eq "E1000E"} | Set-NetworkAdapter -Type "vmxnet3" -confirm:$false | Out-Null # migrate e1000 / e1000e to vmxnet3
+						write-host $MyVM.Name[$VMNumTotal]"changed to VMXNET 3"
+					}
+					$VMNumTotal++;
+				}
+			}
+		write-host "`nMigration OK!`n"
+		}
+	}
+	$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+	pause;vMenuVM	
+}
+Function FastUpgradeVM { ##################################################################################################################################################################################################################
+	cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "Fast VM Upgrade ($vCenter)`n`n=======================================================`n"
+######################################################################
+######################### SELECT THE FEATURES ########################
+######################################################################
+$EnableFloppy = 0 # 0 = Disabled | 1 = Enabled ## Enable to remove Floppy Drive
+$EnablevHardware = 0 # 0 = Disabled | 1 = Enabled ## Enable to Upgrade Virtual Hardware
+$VMHardwareVersion = "v11" # Virtual Hardware Version to UPGRADE
+$EnableCPUHotAdd = 0 # 0 = Disabled | 1 = Enabled ## Enable vCPU HotAdd
+$EnableMemoryHotAdd = 0 # 0 = Disabled | 1 = Enabled ## Enable Memory HotAdd
+######################################################################
+if ($EnableFloppy -eq 1) {
+	$MsgFloppy = "Enabled"
+	$ColorFloppy = "green"
+}
+else {
+	$MsgFloppy = "Disabled"
+	$ColorFloppy = "red"
+}
+
+if ($EnablevHardware -eq 1) {
+	$MsgvHardware = "Enabled"
+	$ColorvHardware = "green"
+}
+else {
+	$MsgvHardware = "Disabled"
+	$ColorvHardware = "red"
+}
+
+if ($EnableCPUHotAdd -eq 1) {
+	$MsgvCPUhotadd = "Enabled"
+	$ColorvCPUhotadd = "green"
+}
+else {
+	$MsgvCPUhotadd = "Disabled"
+	$ColorvCPUhotadd = "red"
+}
+
+if ($EnableMemoryHotAdd -eq 1) {
+	$MsgMemoryhotadd = "Enabled"
+	$ColorMemoryhotadd = "green"
+}
+else {
+	$MsgMemoryhotadd = "Disabled"
+	$ColorMemoryhotadd = "red"
+}
+######################################################################
+Function Enable-MemHotAdd($vm){ # FUNCTION ENABLE MEMORY HOTADD
+	$vmview = Get-vm $vm | Get-View
+	$vmConfigSpec = New-Object VMware.Vim.VirtualMachineConfigSpec
+	$extra = New-Object VMware.Vim.optionvalue
+	$extra.Key="mem.hotadd"
+	$extra.Value="true"
+	$vmConfigSpec.extraconfig += $extra
+	$vmview.ReconfigVM($vmConfigSpec)
+}
+Function Enable-vCpuHotAdd($vm){ # FUNCTION ENABLE CPU HOTADD
+	$vmview = Get-vm $vm | Get-View
+	$vmConfigSpec = New-Object VMware.Vim.VirtualMachineConfigSpec
+	$extra = New-Object VMware.Vim.optionvalue
+	$extra.Key="vcpu.hotadd"
+	$extra.Value="true"
+	$vmConfigSpec.extraconfig += $extra
+	$vmview.ReconfigVM($vmConfigSpec)
+}
+######################################################################
+cls
+write-host $S4Ctitle
+write-host $Body
+write-host "Fast Upgrade VM ($vCenter)`n`n=======================================================`n"
+write-host "# STATUS OF FEATURES`n"
+write-host "- Remove Floppy Drive: $MsgFloppy" -foregroundcolor "$ColorFloppy"
+write-host "- Upgrade vHardware Version: $MsgvHardware" -foregroundcolor "$ColorvHardware"
+write-host "- CPU HotAdd: $MsgvCPUhotadd" -foregroundcolor "$ColorvCPUhotadd"
+write-host "- Memory HotAdd: $MsgMemoryhotadd`n" -foregroundcolor "$ColorMemoryhotadd"
+if ($EnableFloppy -eq 0 -And $EnablevHardware -eq 0 -And $EnableCPUHotAdd -eq 0 -And $EnableMemoryHotAdd -eq 0) {
+	write-host "You MUST enable at least one feature!"
+	write-host "Edit the script and change the value of variables:"
+	write-host "`n======================"
+	write-host '$EnableFloppy'
+	write-host '$EnablevHardware'
+	write-host '$VMHardwareVersion'
+	write-host '$EnableCPUHotAdd'
+	write-host '$EnableMemoryHotAdd'
+	write-host "======================`n"
+	pause;vMenuVM
+}
+write-host "1 - Datacenter`n2 - Cluster`n3 - Resource Pool`n4 - Folder`n"
+$QuestionLocation = read-host "Select Virtual Machines Location"
+
+if ($QuestionLocation -eq 1) { # Datacenter
+	$GetDC = Get-Datacenter | Get-View
+	$ListDCtotal = 0
+	write-host "`n=======================================================`n"
+	if ($GetDC.Name.count -eq 1) {
+		$VMLocation = $GetDC.Name
+		write-host "Datacenter: $VMLocation"
+	}
+	else {
+		while ($GetDC.Name.count -ne $ListDCtotal) {
+			write-host "$ListDCtotal -"$GetDC.Name[$ListDCtotal]
+			$ListDCtotal++;
+		}
+		$MyDC = read-host "`nDatacenter Number"
+		$VMLocation = $GetDC.Name[$MyDC]
+	}
+}
+if ($QuestionLocation -eq 2) { # Cluster
+	$GetCluster = Get-Cluster | Get-View
+	$ListClustertotal = 0
+	write-host "`n=======================================================`n"
+	if ($GetCluster.Name.count -eq 1) {
+		$VMLocation = $GetCluster.Name
+		write-host "Cluster: $VMLocation"
+	}
+	else {
+		while ($GetCluster.Name.count -ne $ListClustertotal) {
+			write-host "$ListClustertotal -"$GetCluster.Name[$ListClustertotal]
+			$ListClustertotal++;
+		}
+		$MyCluster = read-host "`nCluster Number"
+		$VMLocation = $GetCluster.Name[$MyCluster]
+	}
+}
+if ($QuestionLocation -eq 3) { # Resource Pool
+	$GetResourcePool = Get-ResourcePool | Get-View
+	$ListResourcePooltotal = 0
+	write-host "`n=======================================================`n"
+	if ($GetResourcePool.Name.count -eq 1) {
+		$VMLocation = $GetResourcePool.Name
+		write-host "Resource Pool: $VMLocation"
+	}
+	else {
+		while ($GetResourcePool.Name.count -ne $ListResourcePooltotal) {
+			write-host "$ListResourcePooltotal -"$GetResourcePool.Name[$ListResourcePooltotal]
+			$ListResourcePooltotal++;
+		}
+		$MyResourcePool = read-host "`nResource Pool Number"
+		$VMLocation = $GetResourcePool.Name[$MyResourcePool]
+	}
+}
+if ($QuestionLocation -eq 4) { # Folder
+	$GetFolder = Get-Folder -Type VM | Get-View
+	$ListFoldertotal = 0
+	write-host "`n=======================================================`n"
+	if ($GetFolder.Name.count -eq 1) {
+		$VMLocation = $GetFolder.Name
+		write-host "Folder: $VMLocation"
+	}
+	else {
+		while ($GetFolder.Name.count -ne $ListFoldertotal) {
+			write-host "$ListFoldertotal -"$GetFolder.Name[$ListFoldertotal]
+			$ListFoldertotal++;
+		}
+		$MyFolder = read-host "`nFolder Number"
+		$VMLocation = $GetFolder.Name[$MyFolder]
+	}
+}
+######################################################################
+$VMtotal = Get-VM -Location $VMLocation
+if ($VMtotal.Count -eq 0) { # Check if there are VMs in Location
+	write-host "`nThere are no virtual machines in the $VMLocation`nSelect another Virtual Machines Location`n"
+	$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+	pause;vMenuVM
+}
+else {
+	write-host "`n=======================================================`n$VMLocation - Total number of VM: "$VMtotal.Count"`n=======================================================`n"
+	if ($VMtotal.Count -eq 1) {
+		if ($VMtotal.PowerState -eq "PoweredOn") { # Verifies that the VM is turned on
+			$VMStatus = "red" 
+			$VMmsg = "Not ready"
+			$VMon = 1
+		}
+		if ($VMtotal.PowerState -eq "PoweredOff") { # Verifies that the VM is turned off
+			$VMStatus = "green"
+			$VMmsg = "Ready"
+			$VMoff = 1
+		}
+	write-host "-"$VMtotal.Name"$VMmsg" -foregroundcolor "$VMStatus"
+	}
+	else {
+		$VMNumTotal = 0
+		while ($VMtotal.Count -ne $VMNumTotal) { # List all VMs in the $VMLocation
+			if ($VMtotal.PowerState[$VMNumTotal] -eq "PoweredOn") { # Verifies that the VM is turned on
+				$VMStatus = "red" 
+				$VMmsg = "Not ready"
+				$VMontemp = 1;$VMon = $VMontemp + $VMon
+			}
+			if ($VMtotal.PowerState[$VMNumTotal] -eq "PoweredOff") { # Verifies that the VM is turned off
+				$VMStatus = "green"
+				$VMmsg = "Ready"
+				$VMofftemp = 1;$VMoff = $VMofftemp + $VMoff
+			}
+			write-host "-"$VMtotal.Name[$VMNumTotal]"$VMmsg" -foregroundcolor "$VMStatus"
+			$VMNumTotal++
+		}
+	}
+	$VMpowerstate = $VMoff + $VMon
+	write-host "`nTotal number of VM: $VMpowerstate"
+	if ($VMoff -gt 0 -And $VMon -le 0) {
+		write-host "VM ready: $VMoff"
+		write-host "`n[ You can continue ]`n" -foregroundcolor "green"
+	}
+	else {
+		write-host "VM must be turned off: $VMon"
+		write-host "VM ready: $VMoff"
+		write-host "`n[ You can not continue ]`n" -foregroundcolor "red"
+		$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+		pause;vMenuVM
+	}
+	write-host "`n=======================================================`n"
+	write-host "# STATUS OF FEATURES`n"
+	write-host "- Remove Floppy Drive: $MsgFloppy" -foregroundcolor "$ColorFloppy"
+	write-host "- Upgrade vHardware Version: $MsgvHardware" -foregroundcolor "$ColorvHardware"
+	write-host "- CPU HotAdd: $MsgvCPUhotadd" -foregroundcolor "$ColorvCPUhotadd"
+	write-host "- Memory HotAdd: $MsgMemoryhotadd`n" -foregroundcolor "$ColorMemoryhotadd"
+	if ($EnableFloppy -eq 0 -And $EnablevHardware -eq 0 -And $EnableCPUHotAdd -eq 0 -And $EnableMemoryHotAdd -eq 0) {
+		write-host "You MUST enable at least one feature. Edit the script!`n"
+		$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+		pause;vMenuVM
+	}
+	$QuestionMigration = read-host "Do you want to continue? (Y or N)"
+	if ($QuestionMigration -eq "Y") {
+		if ($VMpowerstate -eq 1) { # Just One VM
+			write-host "`n#"$VMtotal.Name
+			if ($EnableFloppy -eq 1) { # FLOPPY DRIVE
+				$VMfloppy = Get-FloppyDrive -VM $VMtotal.Name # Get VM with Floppy Drive
+				if ($VMfloppy.Count -gt 0) {
+					Remove-FloppyDrive -Floppy $VMfloppy -Confirm:$false | Out-Null # Remove floppy drive from VM
+					write-host "Floppy drive from"$VMtotal.Name"was removed"
+				}
+				else {
+					write-host "There is no floppy drive in"$VMtotal.Name
+				}
+			}
+			if ($EnablevHardware -eq 1) { # VIRTUAL HARDWARE VERSION
+				$VMversion = Get-VM -Name $VMtotal.Name # Get VM with Virtual Hardware Version
+				if ($VMversion.Version -lt $VMHardwareVersion) {
+					Set-VM -VM $VMtotal.Name -Version $VMHardwareVersion -confirm:$false | Out-Null # Upgrade Virtual Hardware Version
+					write-host "Virtual Hardware Version from"$VMtotal.Name"was upgraded to $VMHardwareVersion"
+				}
+				else {
+					write-host "The virtual hardware is in the correct version in"$VMtotal.Name
+				}
+			}
+			if ($EnableCPUHotAdd -eq 1) { # CPU HOTADD
+				if ($VMtotal.NumCpu -lt 8) { # -le or -lt
+					$VMCPUhotadd = Get-VM -Name $VMtotal | Get-View # Get VM
+					if ($VMCPUhotadd.Config.CpuHotAddEnabled -ne "False") { # CPU HotAdd
+						Enable-vCPUHotAdd $VMtotal.Name
+						write-host "CPU hotadd from"$VMtotal.Name"was enabled"
+					}
+					else {
+						write-host "CPU hotadd from"$VMtotal.Name"already enabled"
+					}
+				}
+			}
+			if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
+				$VMMemoryhotadd = Get-VM -Name $VMtotal.Name | Get-View # Get VM
+					if ($VMMemoryhotadd.Config.MemoryHotAddEnabled -ne "False") { # Memory HotAdd
+						Enable-MemHotAdd $VMtotal.Name
+						write-host "Memory hotadd from"$VMtotal.Name"was enabled`n"
+					}
+					else {
+						write-host "Memory hotadd from"$VMtotal.Name"already enabled`n"
+					}
+				}
+			}
+			else {		
+				$VMNumTotal = 0
+				while ($VMtotal.Count -ne $VMNumTotal) { # Multiples VMs
+					write-host "`n#"$VMtotal.Name[$VMNumTotal]
+					if ($EnableFloppy -eq 1) { # FLOPPY DRIVE
+						$VMfloppy = Get-FloppyDrive -VM $VMtotal.Name[$VMNumTotal] # Get VM with Floppy Drive
+						if ($VMfloppy.Count -gt 0) {
+							Remove-FloppyDrive -Floppy $VMfloppy -Confirm:$false | Out-Null # Remove floppy drive from VM
+							write-host "Floppy drive from"$VMtotal.Name[$VMNumTotal]"was removed"
+						}
+						else {
+							write-host "There is no floppy drive in"$VMtotal.Name[$VMNumTotal]
+						}
+					}
+					if ($EnablevHardware -eq 1) { # VIRTUAL HARDWARE VERSION
+						$VMversion = Get-VM -Name $VMtotal.Name[$VMNumTotal] # Get VM with Virtual Hardware Version
+						if ($VMversion.Version -lt $VMHardwareVersion) {
+							Set-VM -VM $VMtotal.Name[$VMNumTotal] -Version $VMHardwareVersion -confirm:$false | Out-Null # Upgrade Virtual Hardware Version
+							write-host "Virtual Hardware Version from"$VMtotal.Name[$VMNumTotal]"was upgraded to $VMHardwareVersion"
+						}
+						else {
+							write-host "The virtual hardware is in the correct version in"$VMtotal.Name[$VMNumTotal]
+						}
+					}
+					if ($EnableCPUHotAdd -eq 1) { # CPU HOTADD
+						if ($VMtotal.NumCpu[$VMNumTotal] -lt 8) { # -le or -lt
+							$VMCPUhotadd = Get-VM -Name $VMtotal[$VMNumTotal] | Get-View # Get VM
+							if ($VMCPUhotadd.Config.CpuHotAddEnabled -ne "False") { # CPU HotAdd
+								Enable-vCPUHotAdd $VMtotal.Name[$VMNumTotal]
+								write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
+							}
+							else {
+								write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
+							}
+						}
+					}
+					if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
+						$VMMemoryhotadd = Get-VM -Name $VMtotal.Name[$VMNumTotal] | Get-View # Get VM
+							if ($VMMemoryhotadd.Config.MemoryHotAddEnabled -ne "False") { # Memory HotAdd
+								Enable-MemHotAdd $VMtotal.Name[$VMNumTotal]
+								write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
+							}
+							else {
+								write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
+							}
+						}
+					write-host "`n"
+					$VMNumTotal++;
+					}
+				}
+			}
+	$VMpowerstate=0;$VMoff=0;$VMon=0; # reset values
+	pause;vMenuVM
+	}
 }
 Function AssignmentTag { # 8 - TAG
 	cls
@@ -1523,7 +2276,7 @@ Function CreateCategoryTag {
 		$QuestionCardinality = read-Host "`nMultiple Cardinality (Y or N)"
 		if ($QuestionCardinality -eq "N") {$MyTagCardinality = "single"}
 		if ($QuestionCardinality -eq "Y") {$MyTagCardinality = "multiple"}
-		#write-host
+		#write-host B - E - T - A
 		#write-host "1 = Cluster | 2 = Datacenter | 3 = Datastore | 4 = DatastoreCluster"
 		#write-host "5 = DistributedPortGroup | 6 = DistributedSwitch | 7 = Folder"
 		#write-host "8 = ResourcePool | 9 = VApp | 10 = VirtualPortGroup"
@@ -1554,7 +2307,7 @@ Function CreateCategoryTag {
 	pause;vMenuTag
 	}
 Function vMenu { ######### MENUS #########
-	if ($TestServer -eq 0) { # PRINCIPAL MENU - BEFORE REGISTER SERVER
+	if ($TestServer -eq 1) { # PRINCIPAL MENU - BEFORE REGISTER SERVER
 		cls
 		write-host $S4Ctitle
 		write-host $Body
@@ -1564,7 +2317,7 @@ Function vMenu { ######### MENUS #########
 		write-host "9 - EXIT`n`n" -foregroundcolor "red"
 		$vQuestion = read-host "Choose an Option"
 		switch ($vQuestion) {
-			0 {MyConfiguration}
+			0 {vMenuConfiguration}
 			1 {MyTest}
 			9 {exit}
 			default {
@@ -1591,8 +2344,8 @@ Function vMenu { ######### MENUS #########
 		write-host "9 - EXIT`n`n" -foregroundcolor "red"
 		$vQuestion = read-host "Choose an Option"
 		switch ($vQuestion) {
-			0 {MyConfiguration}
-			1 {MyTest} 
+			0 {vMenuConfiguration}
+			1 {MyTest}
 			2 {MyvCenter} 
 			3 {vMenuDatacenter}
 			4 {vMenuCluster}
@@ -1609,6 +2362,26 @@ Function vMenu { ######### MENUS #########
 		}
 	}
 }
+Function vMenuConfiguration { # 0 - CONFIGURATION
+	cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "MENU CONFIGURATION`n`n=======================================================`n"
+	write-host "1 - Configure Servers`n"
+	write-host "2 - Configure Mail`n"
+	write-host "9 - BACK`n`n" -foregroundcolor "red"
+	$vQuestionPortGroup = read-host "Choose an Option"
+	switch ($vQuestionPortGroup) {
+		1 {MyConfiguration}
+		2 {ConfMail}
+		9 {vMenu}
+		default {
+			cls
+			write-host "Invalid option, try again!" -foregroundcolor "red"
+			pause;vMenuDatacenter
+		}
+	}
+}
 Function vMenuDatacenter { # 3 - DATA CENTER
 	cls
 	write-host $S4Ctitle
@@ -1616,11 +2389,13 @@ Function vMenuDatacenter { # 3 - DATA CENTER
 	write-host "MENU DATA CENTER`n`n=======================================================`n"
 	write-host "1 - Create Data Center`n"
 	write-host "2 - List ESXi Host (report)`n"
+	write-host "3 - Info Data Center`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 	$vQuestionPortGroup = read-host "Choose an Option"
 	switch ($vQuestionPortGroup) {
 		1 {CreateDC}
 		2 {ListHostsDC}
+		3 {InfoDC}
 		9 {vMenu}
 		default {
 			cls
@@ -1711,14 +2486,14 @@ Function vMenuPortGroup { # MENU PORT GROUP
 	write-host $Body
 	write-host "MENU PORT GROUP`n`n=======================================================`n"
 	write-host "1 - Create Port Group`n"
-	write-host "2 - List Port Group (report)`n"
-	write-host "3 - Create iSCSI Port Group`n"
+	write-host "2 - Create iSCSI Port Group`n"
+	write-host "3 - List Port Group (report)`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 	$vQuestionPortGroup = read-host "Choose an Option"
 	switch ($vQuestionPortGroup) {
 		1 {Createpg}
-		2 {Listpg}
-		3 {CreatepgiSCSI}
+		2 {CreatepgiSCSI}
+		3 {Listpg}
 		9 {vMenuNetwork}
 		default {
 			cls
@@ -1733,17 +2508,15 @@ Function vMenuVMKernel { # MENU VMKERNEL
 	write-host $Body
 	write-host "MENU VMKERNEL`n`n=======================================================`n"
 	write-host "1 - Create VMKernel`n"
-	write-host "2 - List VMKernel (report)`n"
-	write-host "3 - Create vMotion VMKernel`n"
-	write-host "4 - Create iSCSI VMKernel`n"
+	write-host "2 - Create iSCSI VMKernel`n"
+	write-host "3 - List VMKernel (report)`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 
 	$vQuestionPortGroup = read-host "Choose an Option"
 	switch ($vQuestionPortGroup) {
 		1 {CreateVMK}
-		2 {ListVMK}
-		3 {CreateVMKvMotion}
-		4 {CreateVMKiSCSI}
+		2 {CreateVMKiSCSI}
+		3 {ListVMK}
 		9 {vMenuNetwork}
 		default {
 			cls
@@ -1798,11 +2571,15 @@ Function vMenuVM { # 7 - VIRTUAL MACHINE
 	write-host $S4Ctitle
 	write-host $Body
 	write-host "MENU VIRTUAL MACHINE`n`n=======================================================`n"
-	write-host "1 - Create Linked Clone VM`n"
+	write-host "1 - Create Linked Clone`n"
+	write-host "2 - Migrate VM Network`n"
+	write-host "3 - Fast VM Upgrade`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 	$vQuestionHosts = read-host "Choose an Option"
 	switch ($vQuestionHosts) {
 		1 {CreateVMLC}
+		2 {MigrateNetworkVM}
+		3 {FastUpgradeVM}
 		9 {vMenu}
 		default {
 			cls
