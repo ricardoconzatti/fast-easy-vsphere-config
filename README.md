@@ -26,6 +26,8 @@ Este script utiliza o vSphere PowerCLI para criar um ambiente completo no vSpher
 		 - Configura o NTP, SSH e Maintenance Mode
 	 - **VM**
 		 - Configura a criação de máquinas virtuais utilizando o linked clone
+		 - Migra interfaces de rede E1000 / E1000E para VMXNET 3
+		 - Otimiza VM (remove floppy drive, upgrade hardware virtual e ativa CPU/memória hotadd)
 	 - **TAG**
 		 - Cria categorias para as tags, cria tags e associa as tags com máquinas virtuais
 	 - **E-mail**
