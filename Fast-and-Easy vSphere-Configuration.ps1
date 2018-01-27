@@ -10,11 +10,11 @@ $MyHosts = 0 #'esxi01.s4c.local','esxi02.s4c.local','esxi03.s4c.local' # Default
 $TestServer = 1 # 0 Off | 1 On | Default = 1
 ############################### MAIL ################################
 $SmtpClient = new-object system.net.mail.smtpClient
-$SmtpClient.Host = 'smtp.gmail.com' # SMTP host
+$SmtpClient.Host = "smtp.example.com" # SMTP host
 $SmtpClient.Port = 587 # SMTP port
 $SmtpClient.EnableSsl = $true # $true or $false
-$EmailFrom = "vcap@solutions4crowds.com.br" # Email from
-$ReportReceiver = "ricardoconzatti@hotmail.com" # Email to
+$EmailFrom = "email@example.com" # Email from
+$ReportReceiver = "admin.group@example.com" # Email to
 $MailBody = "The report file is attached.`n`nAutomated by Ricardo Conzatti`nwww.Solutions4Crowds.com.br" # Body
 ######################################################################
 $NumHost = $MyHosts.count
