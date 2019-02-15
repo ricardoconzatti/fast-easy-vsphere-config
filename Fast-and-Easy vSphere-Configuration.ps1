@@ -1,10 +1,10 @@
 ######################################################################
 # Created By @RicardoConzatti | November 2016
-# Latest Update: January 2018
-# www.Solutions4Crowds.com.br
+# Latest Update: February 2019
+# @RicardoConzatti | www.Solutions4Crowds.com.br
 # Documentation https://fasteasy.solutions4crowds.com.br
 ######################################################################
-$vCenter = 0 # "vcenter.s4c.local" # Default = 0
+$vCenter = 0 #"vcenter.s4c.local" # Default = 0
 $vCuser = 0 #"administrator@vsphere.local" # Default = 0
 $MyHosts = 0 #'esxi01.s4c.local','esxi02.s4c.local','esxi03.s4c.local' # Default = 0
 $TestServer = 1 # 0 Off | 1 On | Default = 1
@@ -19,8 +19,8 @@ $MailBody = "The report file is attached.`n`nAutomated by Ricardo Conzatti`nwww.
 ######################################################################
 $NumHost = $MyHosts.count
 cls
-$S4Ctitle = "Fast & Easy vSphere Configuration v2.0"
-$Body = 'www.Solutions4Crowds.com.br
+$S4Ctitle = "Fast & Easy vSphere Configuration v2.1"
+$Body = '[ @RicardoConzatti | www.Solutions4Crowds.com.br ]
 
 =======================================================
 '
@@ -273,7 +273,7 @@ Function InfoDC {
 	$GetDC = Get-Datacenter | Get-View
 	if ($GetDC.Name.count -eq 0) {
 		write-host "There is no data center" -foregroundcolor "red"
-		write-host "Redirecting to create data center`n"
+		write-host "Redirecting to create Data Center`n"
 		pause;CreateDC
 	}
 	if ($GetDC.Name.count -eq 1) {
@@ -300,7 +300,6 @@ Function InfoDC {
 			if ($MyDC.count -eq 1) {
 				$VMDC = Get-VM -Location $MyDC # Number VM
 				$ESXiDC = Get-VMHost -Location $MyDC # Number ESXi
-				#$RPool = $RPool.count - 1 # Number Resource Pool
 				$RPoolDC = Get-Datacenter -Name $MyDC | Get-ResourcePool # Number Resource Pool
 				$FolderVMDC = Get-Folder -Type VM -Location $MyDC # Number Folder VM
 				$MyCluster = Get-Cluster -Location $MyDC | Select -ExpandProperty Name # Number Cluster
@@ -328,7 +327,6 @@ Function InfoDC {
 			if ($MyDC.count -gt 1) {
 				$VMDC = Get-VM -Location $MyDC[$NumDCTotal] # Number VM
 				$ESXiDC = Get-VMHost -Location $MyDC[$NumDCTotal] # Number ESXi
-				#$RPoolDC = $RPoolDC.count - 1 # Number Resource Pool
 				$RPoolDC = Get-Datacenter -Name $MyDC[$NumDCTotal] | Get-ResourcePool # Number Resource Pool
 				$FolderVMDC = Get-Folder -Type VM -Location $MyDC[$NumDCTotal] # Number Folder VM
 				$MyCluster = Get-Cluster -Location $MyDC[$NumDCTotal] | Select -ExpandProperty Name # Number Cluster
@@ -1739,6 +1737,164 @@ Function CreateVMLC { # 7 - VIRTUAL MACHINE
 	write-host "`nVirtual Machine $NewVMName OK!`n" -foregroundcolor "green"
 	pause;vMenuVM	
 }
+Function ListVM { # 7 - VIRTUAL MACHINE
+cls
+	write-host $S4Ctitle
+	write-host $Body
+	write-host "List Virtual Machines - ($vCenter)`n`n=======================================================`n"
+	$GetVM = Get-VM # TESTARRRRRRRRRRRRRRRRRRR #####################################
+	if ($GetVM.Name.count -eq 0) {
+		write-host "There are no virtual machines" -foregroundcolor "red"
+		write-host "Redirecting to virtual machine menu`n"
+		pause;vMenuVM
+	}
+	write-host "1 - Data Center`n2 - Cluster`n3 - Resource Pool`n4 - Folder`n"
+	$QuestionLocation = read-host "Select Virtual Machines Location"
+	if ($QuestionLocation -eq 1) { # Datacenter
+		$GetDC = Get-Datacenter | Get-View
+		$ListDCtotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetDC.Count -eq 1) {
+			$VMLocation = $GetDC.Name
+			write-host "Data Center: $VMLocation"
+		}
+		else {
+			while ($GetDC.Name.count -ne $ListDCtotal) {
+				write-host "$ListDCtotal -"$GetDC.Name[$ListDCtotal]
+				$ListDCtotal++;
+			}
+			$MyDC = read-host "`nDatacenter Number"
+			$VMLocation = $GetDC.Name[$MyDC]
+		}
+	}
+	if ($QuestionLocation -eq 2) { # Cluster
+		$GetCluster = Get-Cluster | Get-View
+		$ListClustertotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetCluster.Count -eq 0) {
+			write-host "There is no cluster" -foregroundcolor "red"
+			write-host "Redirecting to List VMs`n"
+			pause;ListVM
+		}
+		if ($GetCluster.Name.count -eq 1) {
+			$VMLocation = $GetCluster.Name
+			write-host "Cluster: $VMLocation"
+		}
+		else {
+			while ($GetCluster.Name.count -ne $ListClustertotal) {
+				write-host "$ListClustertotal -"$GetCluster.Name[$ListClustertotal]
+				$ListClustertotal++;
+			}
+			$MyCluster = read-host "`nCluster Number"
+			$VMLocation = $GetCluster.Name[$MyCluster]
+		}
+	}
+	if ($QuestionLocation -eq 3) { # Resource Pool
+		$GetResourcePool = Get-ResourcePool | Get-View
+		$ListResourcePooltotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetResourcePool.Name.count -eq 1) {
+			$VMLocation = $GetResourcePool.Name
+			write-host "Resource Pool: $VMLocation"
+		}
+		else {
+			while ($GetResourcePool.Name.count -ne $ListResourcePooltotal) {
+				write-host "$ListResourcePooltotal -"$GetResourcePool.Name[$ListResourcePooltotal]
+				$ListResourcePooltotal++;
+			}
+			$MyResourcePool = read-host "`nResource Pool Number"
+			$VMLocation = $GetResourcePool.Name[$MyResourcePool]
+		}
+	}
+	if ($QuestionLocation -eq 4) { # Folder
+		$GetFolder = Get-Folder -Type VM | Get-View
+		$ListFoldertotal = 0
+		write-host "`n=======================================================`n"
+		if ($GetFolder.Name.count -eq 1) {
+			$VMLocation = $GetFolder.Name
+			write-host "Folder: $VMLocation"
+		}
+		else {
+			while ($GetFolder.Name.count -ne $ListFoldertotal) {
+				write-host "$ListFoldertotal -"$GetFolder.Name[$ListFoldertotal]
+				$ListFoldertotal++;
+			}
+			$MyFolder = read-host "`nFolder Number"
+			$VMLocation = $GetFolder.Name[$MyFolder]
+		}
+	}	
+	$GetVMLocation = Get-VM -Location $VMLocation
+	if ($GetVMLocation.Count -eq 0) { # Check if there are VMs
+		write-host "There are no virtual machines" -foregroundcolor "red"
+		write-host "Redirecting to virtual machine menu`n"
+		pause;vMenuVM
+	}
+	else {
+		$GetVM = Get-VM -Location $VMLocation
+		if ($GetVM.Count -eq 1) {
+			write-host "1 - "$GetVM
+		}
+		else {
+			write-host "`nThere are"$GetVM.Count"virtual machines in $VMLocation" -foregroundcolor "green"
+			Get-VM -Location $VMLocation | Select Name,PowerState,Version,NumCpu,@{Label="MemoryGB";Expression={"{0:N2} GB" -f ($_.MemoryGB)}},@{Label="ProvisionedSpaceGB";Expression={"{0:N2} GB" -f ($_.ProvisionedSpaceGB)}},@{Label="UsedSpaceGB";Expression={"{0:N2} GB" -f ($_.UsedSpaceGB)}},Folder,ResourcePool,GuestId,VMHost | Format-List # List Virtual Machines
+		}
+	}
+	$QuestionExport = read-host "Would you like to export this report? (Y or N)"
+	if ($QuestionExport -eq "Y") {
+		$ExportPath = read-host "`nPath to export (Ex: C:\temp)"
+		write-host "`nHTML or CSV`n"
+		write-host "1 - HTML`n"
+		write-host "2 - CSV`n"
+		$QuestionExportFormat = read-host "Choose an Option"
+		write-host
+		if ($QuestionExportFormat -eq 1) {
+			$Report = Get-VM -Location $VMLocation | Select Name,PowerState,Version,NumCpu,@{Label="MemoryGB";Expression={"{0:N2} GB" -f ($_.MemoryGB)}},@{Label="ProvisionedSpaceGB";Expression={"{0:N2} GB" -f ($_.ProvisionedSpaceGB)}},@{Label="UsedSpaceGB";Expression={"{0:N2} GB" -f ($_.UsedSpaceGB)}},Folder,ResourcePool,GuestId,VMHost | ConvertTo-HTML -Fragment
+			if (-not $Report) {
+				$Report = New-Object PSObject -Property @{
+				  Name = ""
+				  PowerState = ""
+				  NumCpu = ""
+				  MemoryGB = ""
+				  ProvisionedSpaceGB = ""
+				  UsedSpaceGB = ""
+				  Folder = ""
+				  ResourcePool = ""
+				  GuestId = ""
+				  VMHost = ""
+				}
+			}
+			$GetVMTotal = $GetVM.Count
+			ConvertTo-HTML -Title "::. Solutions4Crowds .::" -Head "<title>::. Solutions4Crowds .::</title><div id='title' align='center'>vCenter: $vCenter | List Virtual Machines - $VMLocation [$GetVMTotal]</div>$br<div id='subtitle'>Solutions4Crowds.com.br | Generated report: $(Get-Date) </div> $br" -Body "$CSS $BoxContentOpener $Report $PageBoxCloser" | Out-File $ExportPath'\Virtual-Machines-'$VMLocation'-Details.html'
+			$ExportedFullPath = "$ExportPath\Virtual-Machines-$VMLocation-Details.html"
+			write-host "Exported to $ExportedFullPath`n"
+		}
+		if ($QuestionExportFormat -eq 2) {
+			Get-VM -Location $VMLocation | Select Name,PowerState,NumCpu,MemoryMB,VMHost | Export-Csv "$ExportPath\Virtual-Machines-$VMLocation-Details.csv"
+			$ExportedFullPath = "$ExportPath\Virtual-Machines-$VMLocation-Details.csv"
+			write-host "Exported to $ExportedFullPath`n"
+		}
+		$QuestionSendEmail = read-host "Would you like to send this report by email? (Y or N)" # MAIL
+			if ($QuestionSendEmail -eq "Y") {
+				$MyMailPass = Read-Host -assecurestring "`nMail Password ("$EmailFrom ")"
+				$MyMailPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($MyMailPass))
+				$SmtpClient.Credentials = New-Object System.Net.NetworkCredential($EmailFrom,$MyMailPass);
+				$emailto = $ReportReceiver
+				$MailSubject = "$vCenter | Virtual Machines - $VMLocation" # SUBJECT
+				$emailMessage = New-Object System.Net.Mail.MailMessage
+				$emailMessage.From = $EmailFrom
+				$emailMessage.To.Add($EmailTo)
+				$emailMessage.Subject = $MailSubject
+				$emailMessage.Body = $MailBody
+				$emailMessage.Attachments.Add($ExportedFullPath)
+				$SmtpClient.Send($emailMessage)
+				write-host "`nEmail sended to $ReportReceiver`n"
+			}
+	}
+	else {
+		pause;vMenuVM
+	}
+	pause;vMenuVM
+}
 Function MigrateNetworkVM { # 7 - VIRTUAL MACHINE
 	cls
 	write-host $S4Ctitle
@@ -1767,6 +1923,11 @@ Function MigrateNetworkVM { # 7 - VIRTUAL MACHINE
 		$GetCluster = Get-Cluster | Get-View
 		$ListClustertotal = 0
 		write-host "`n=======================================================`n"
+		if ($GetCluster.Count -eq 0) {
+			write-host "There is no cluster" -foregroundcolor "red"
+			write-host "Redirecting to Migrate Network VM`n"
+			pause;MigrateNetworkVM
+		}
 		if ($GetCluster.Name.count -eq 1) {
 			$VMLocation = $GetCluster.Name
 			write-host "Cluster: $VMLocation"
@@ -2311,7 +2472,7 @@ Function vMenu { ######### MENUS #########
 		cls
 		write-host $S4Ctitle
 		write-host $Body
-		write-host "PRINCIPAL MENU`n`n=======================================================`n"
+		write-host "# PRINCIPAL MENU`n`n=======================================================`n"
 		write-host "0 - Configuration`n"
 		write-host "1 - Test Servers`n"
 		write-host "9 - EXIT`n`n" -foregroundcolor "red"
@@ -2331,7 +2492,7 @@ Function vMenu { ######### MENUS #########
 		cls
 		write-host $S4Ctitle
 		write-host $Body
-		write-host "PRINCIPAL MENU`n`n=======================================================`n"
+		write-host "# PRINCIPAL MENU`n`n=======================================================`n"
 		write-host "0 - Configuration`n"
 		write-host "1 - Test Servers`n"
 		write-host "2 - vCenter Server`n"
@@ -2366,7 +2527,7 @@ Function vMenuConfiguration { # 0 - CONFIGURATION
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU CONFIGURATION`n`n=======================================================`n"
+	write-host "# MENU CONFIGURATION`n`n=======================================================`n"
 	write-host "1 - Configure Servers`n"
 	write-host "2 - Configure Mail`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
@@ -2386,7 +2547,7 @@ Function vMenuDatacenter { # 3 - DATA CENTER
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU DATA CENTER`n`n=======================================================`n"
+	write-host "# MENU DATA CENTER`n`n=======================================================`n"
 	write-host "1 - Create Data Center`n"
 	write-host "2 - List ESXi Host (report)`n"
 	write-host "3 - Info Data Center`n"
@@ -2408,7 +2569,7 @@ Function vMenuCluster { # 4 - CLUSTER
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU CLUSTER`n`n=======================================================`n"
+	write-host "# MENU CLUSTER`n`n=======================================================`n"
 	write-host "1 - Create Cluster`n"
 	write-host "2 - Add ESXi Host to Cluster`n"
 	write-host "3 - List ESXi Host (report)`n"
@@ -2434,7 +2595,7 @@ Function vMenuNetwork { # 5 - NETWORK
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU NETWORK`n`n=======================================================`n"
+	write-host "# MENU NETWORK`n`n=======================================================`n"
 	write-host "1 - VDS`n"
 	write-host "2 - Port Group`n"
 	write-host "3 - VMKernel`n"
@@ -2458,7 +2619,7 @@ Function vMenuVDS { # MENU VDS
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU VDS`n`n=======================================================`n"
+	write-host "# MENU VDS`n`n=======================================================`n"
 	write-host "1 - Create VDS`n"
 	write-host "2 - List VDS (report)`n"
 	write-host "3 - Add ESXi Host to VDS`n"
@@ -2484,7 +2645,7 @@ Function vMenuPortGroup { # MENU PORT GROUP
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU PORT GROUP`n`n=======================================================`n"
+	write-host "# MENU PORT GROUP`n`n=======================================================`n"
 	write-host "1 - Create Port Group`n"
 	write-host "2 - Create iSCSI Port Group`n"
 	write-host "3 - List Port Group (report)`n"
@@ -2506,7 +2667,7 @@ Function vMenuVMKernel { # MENU VMKERNEL
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU VMKERNEL`n`n=======================================================`n"
+	write-host "# MENU VMKERNEL`n`n=======================================================`n"
 	write-host "1 - Create VMKernel`n"
 	write-host "2 - Create iSCSI VMKernel`n"
 	write-host "3 - List VMKernel (report)`n"
@@ -2529,7 +2690,7 @@ Function vMenuiSCSI { # MENU ISCSI
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU iSCSI`n`n=======================================================`n"
+	write-host "# MENU iSCSI`n`n=======================================================`n"
 	write-host "1 - Configure iSCSI`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 	$vQuestionPortGroup = read-host "Choose an Option"
@@ -2547,7 +2708,7 @@ Function vMenuHosts { # 6 - ESXI
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU ESXi`n`n=======================================================`n"
+	write-host "# MENU ESXi`n`n=======================================================`n"
 	write-host "1 - Configure NTP`n"
 	write-host "2 - Configure SSH`n"
 	write-host "3 - Maintenance Mode`n"
@@ -2570,16 +2731,18 @@ Function vMenuVM { # 7 - VIRTUAL MACHINE
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU VIRTUAL MACHINE`n`n=======================================================`n"
+	write-host "# MENU VIRTUAL MACHINE`n`n=======================================================`n"
 	write-host "1 - Create Linked Clone`n"
-	write-host "2 - Migrate VM Network`n"
-	write-host "3 - Fast VM Upgrade`n"
+	write-host "2 - List VMs (report)`n"
+	write-host "3 - Migrate VM Network`n"
+	write-host "4 - Fast VM Upgrade`n"
 	write-host "9 - BACK`n`n" -foregroundcolor "red"
 	$vQuestionHosts = read-host "Choose an Option"
 	switch ($vQuestionHosts) {
 		1 {CreateVMLC}
-		2 {MigrateNetworkVM}
-		3 {FastUpgradeVM}
+		2 {ListVM}
+		3 {MigrateNetworkVM}
+		4 {FastUpgradeVM}
 		9 {vMenu}
 		default {
 			cls
@@ -2592,7 +2755,7 @@ Function vMenuTag { # 8 - TAG
 	cls
 	write-host $S4Ctitle
 	write-host $Body
-	write-host "MENU TAG`n`n=======================================================`n"
+	write-host "# MENU TAG`n`n=======================================================`n"
 	write-host "1 - Create Category`n"
 	write-host "2 - Create Tag`n"
 	write-host "3 - Assignment Tag in VM`n"
